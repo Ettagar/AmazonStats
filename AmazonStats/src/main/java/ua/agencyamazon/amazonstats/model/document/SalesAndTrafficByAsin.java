@@ -10,10 +10,10 @@ import ua.agencyamazon.amazonstats.model.data.TrafficByAsin;
 @Data
 @Document(collection = "SalesAndTrafficByAsin")
 public class SalesAndTrafficByAsin {
-    @Id
-    private String id;
-    private String parentAsin;
-    private String sku;
-    private SalesByAsin salesByAsin;
-    private TrafficByAsin trafficByAsin;
+	@Id
+	private String id;
+	private String parentAsin;
+	private String sku;
+	private SalesByAsin salesByAsin;
+	private TrafficByAsin trafficByAsin;
 }

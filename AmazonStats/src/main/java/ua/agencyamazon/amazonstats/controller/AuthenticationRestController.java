@@ -30,24 +30,24 @@ public class AuthenticationRestController {
 	}
 
 	@PostMapping("/logout")
-    public ResponseEntity<Void> logout() {
-        authenticationService.logout();
-        return ResponseEntity.ok().build();
-    }
+	public ResponseEntity<Void> logout() {
+		authenticationService.logout();
+		return ResponseEntity.ok().build();
+	}
 
-    @PostMapping("/logout-all")
-    public ResponseEntity<Void> logoutAll() {
-        authenticationService.logoutAll();
-        return ResponseEntity.ok().build();
-    }
+	@PostMapping("/logout-all")
+	public ResponseEntity<Void> logoutAll() {
+		authenticationService.logoutAll();
+		return ResponseEntity.ok().build();
+	}
 
-    @PostMapping("/access-token")
-    public ResponseEntity<TokenDto> accessToken(@RequestBody TokenDto tokenDto) {
-        return ResponseEntity.ok(authenticationService.generateAccessToken(tokenDto));
-    }
+	@PostMapping("/new-access-token")
+	public ResponseEntity<TokenDto> newAccessToken(@RequestBody TokenDto tokenDto) {
+		return ResponseEntity.ok(authenticationService.generateAccessToken(tokenDto));
+	}
 
-    @PostMapping("/refresh-token")
-    public ResponseEntity<TokenDto> refreshToken(@RequestBody TokenDto tokenDto) {
-        return ResponseEntity.ok(authenticationService.refreshToken(tokenDto));
-    }
+	@PostMapping("/new-refresh-token")
+	public ResponseEntity<TokenDto> newRefreshToken(@RequestBody TokenDto tokenDto) {
+		return ResponseEntity.ok(authenticationService.generateRefreshToken(tokenDto));
+	}
 }

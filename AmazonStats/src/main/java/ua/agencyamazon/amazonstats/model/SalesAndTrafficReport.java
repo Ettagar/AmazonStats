@@ -14,15 +14,15 @@ import ua.agencyamazon.amazonstats.model.document.SalesAndTrafficByDate;
 @Data
 @Document(collection = "SalesAndTrafficReport")
 public class SalesAndTrafficReport {
-    @Id
-    private String id;
+	@Id
+	private String id;
 
-    @DBRef
-    private ReportSpecification reportSpecification;
+	@DBRef
+	private ReportSpecification reportSpecification;
 
-    @DBRef
-    private List<SalesAndTrafficByDate> salesAndTrafficByDate;
+	@DBRef
+	private List<SalesAndTrafficByDate> salesAndTrafficByDate;
 
-    @DBRef
-    private List<SalesAndTrafficByAsin> salesAndTrafficByAsin;
+	@DBRef
+	private List<SalesAndTrafficByAsin> salesAndTrafficByAsin;
 }

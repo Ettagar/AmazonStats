@@ -21,29 +21,21 @@ import ua.agencyamazon.amazonstats.model.document.User;
 @Component
 @Slf4j
 public class JwtUtils {
-	static final String ISSUER = "AmazonStats";
+	private static final String ISSUER = "AmazonStats";
 
-	private long accessTokenExpirationMs;
-	private long refreshTokenExpirationMs;
-
-	private Algorithm accessTokenAlgorithm;
-	private Algorithm refreshTokenAlgorithm;
-	private JWTVerifier accessTokenVerifier;
-	private JWTVerifier refreshTokenVerifier;
+	private final long accessTokenExpirationMs;
+	private final long refreshTokenExpirationMs;
+	private final Algorithm algorithm;
+	private final JWTVerifier verifier;
 
 	public JwtUtils(
-			@Value("${accessTokenSecret}") String accessTokenSecret,
-			@Value("${refreshTokenSecret}") String refreshTokenSecret,
+			@Value("${tokenSecret}") String tokenSecret,
 			@Value("${refreshTokenExpirationDays}") int refreshTokenExpirationDays,
 			@Value("${accessTokenExpirationMinutes}") int accessTokenExpirationMinutes) {
-		accessTokenExpirationMs = TimeUnit.MILLISECONDS.convert(accessTokenExpirationMinutes, TimeUnit.MINUTES);
-		refreshTokenExpirationMs = TimeUnit.MILLISECONDS.convert(refreshTokenExpirationDays, TimeUnit.DAYS);
-		accessTokenAlgorithm = Algorithm.HMAC512(accessTokenSecret);
-		refreshTokenAlgorithm = Algorithm.HMAC512(refreshTokenSecret);
-		accessTokenVerifier = JWT.require(accessTokenAlgorithm)
-				.withIssuer(ISSUER)
-				.build();
-		refreshTokenVerifier = JWT.require(refreshTokenAlgorithm)
+		this.accessTokenExpirationMs = TimeUnit.MILLISECONDS.convert(accessTokenExpirationMinutes, TimeUnit.MINUTES);
+		this.refreshTokenExpirationMs = TimeUnit.MILLISECONDS.convert(refreshTokenExpirationDays, TimeUnit.DAYS);
+		this.algorithm  = Algorithm.HMAC512(tokenSecret);
+		this.verifier = JWT.require(algorithm)
 				.withIssuer(ISSUER)
 				.build();
 	}
@@ -54,7 +46,7 @@ public class JwtUtils {
 				.withSubject(user.getId())
 				.withIssuedAt(new Date())
 				.withExpiresAt(new Date(new Date().getTime() + accessTokenExpirationMs))
-				.sign(accessTokenAlgorithm);
+				.sign(algorithm);
 	}
 
 	public String generateRefreshToken(User user, RefreshToken refreshToken) {
@@ -63,66 +55,55 @@ public class JwtUtils {
 				.withSubject(user.getId())
 				.withClaim("tokenId", refreshToken.getId())
 				.withIssuedAt(new Date())
-				.withExpiresAt(new Date((new Date()).getTime() + refreshTokenExpirationMs))
-				.sign(refreshTokenAlgorithm);
-	}
-	
-	public Optional<String> extractTokenFromSecurityContext() {
-	    var authentication = SecurityContextHolder.getContext().getAuthentication();
-	    if (authentication != null && authentication.isAuthenticated()) {
-	        // Check if credentials hold the token, as per custom implementations
-	        if (authentication.getCredentials() instanceof String token) {
-	            return Optional.of(token);
-	        }
-	        // Optionally, handle cases where the token might be in the Principal
-	        if (authentication.getPrincipal() instanceof String token) {
-	            return Optional.of(token);
-	        }
-	    }
-	    return Optional.empty();
+				.withExpiresAt(new Date((System.currentTimeMillis() + refreshTokenExpirationMs)))
+				.sign(algorithm);
 	}
 
-    public Optional<String> getUserIdFromSecurityContext() {
-        return extractTokenFromSecurityContext()
-                .map(this::getUserIdFromAccessToken);
-    }
+	public Optional<String> extractTokenFromSecurityContext() {
+		var authentication = SecurityContextHolder.getContext().getAuthentication();
+		if (authentication != null &&
+				authentication.isAuthenticated() &&
+				authentication.getCredentials() instanceof String token) {
+			log.info("Token is found {}", token);
+			return Optional.of(token);
+		}
+
+		return Optional.empty();
+	}
+
+	public Optional<String> getUserIdFromSecurityContext() {
+		return extractTokenFromSecurityContext()
+				.map(this::getUserIdFromAccessToken);
+	}
 
 	public boolean validateAccessToken(String token) {
-		return decodeAccessToken(token).isPresent();
+		return decodeToken(token, "access").isPresent();
 	}
 
 	public boolean validateRefreshToken(String token) {
-		return decodeRefreshToken(token).isPresent();
+		return decodeToken(token, "refresh").isPresent();
 	}
 
 	public String getUserIdFromAccessToken(String token) {
-		return decodeAccessToken(token).get().getSubject();
+		return decodeToken(token, "access").get().getSubject();
 	}
 
 	public String getUserIdFromRefreshToken(String token) {
-		return decodeRefreshToken(token).get().getSubject();
+		return decodeToken(token, "refresh").get().getSubject();
 	}
 
 	public String getTokenIdFromRefreshToken(String token) {
-		return decodeRefreshToken(token).get().getClaim("tokenId").asString();
-	}
-	
-	private Optional<DecodedJWT> decodeAccessToken(String token) {
-		try {
-			return Optional.of(accessTokenVerifier.verify(token));
-		} catch (JWTVerificationException e) {
-			log.error("Invalid access token", e);
-		}
-		return Optional.empty();
+		Optional<DecodedJWT> decodedJWT = decodeToken(token, "refresh");
+		decodedJWT.ifPresent(jwt -> log.info("Decoded refresh token claims: {}", jwt.getClaims()));
+		return decodedJWT.map(jwt -> jwt.getClaim("tokenId").asString()).orElse(null);
 	}
 
-	private Optional<DecodedJWT> decodeRefreshToken(String token) {
+	private Optional<DecodedJWT> decodeToken(String token, String tokenType) {
 		try {
-			return Optional.of(refreshTokenVerifier.verify(token));
+			return Optional.of(verifier.verify(token));
 		} catch (JWTVerificationException e) {
-			log.error("Invalid refresh token", e);
+			log.error("Invalid {} token: {}", tokenType, e.getMessage());
+			return Optional.empty();
 		}
-		return Optional.empty();
 	}
 }
-

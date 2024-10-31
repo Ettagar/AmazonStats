@@ -11,6 +11,6 @@ import ua.agencyamazon.amazonstats.model.document.User;
 public interface UserRepository extends MongoRepository<User, String> {
 
 	Optional<User> findByUsername(String username);
-	
+
 	boolean existsByUsernameOrEmail(String username, String email);
 }

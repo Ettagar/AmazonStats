@@ -10,6 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class MonetaryAmount {
-    private BigDecimal amount;
-    private String currencyCode;
+	private BigDecimal amount;
+	private String currencyCode;
 }

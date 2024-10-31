@@ -26,32 +26,37 @@ public class AccessTokenFilter extends OncePerRequestFilter {
 	private final UserService userService;
 
 	@Override
-	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+			throws ServletException, IOException {
 		try {
-			Optional<String> accessToken = parseAccessToken(request);
-			if(accessToken.isPresent() && jwtUtils.validateAccessToken(accessToken.get())) {
-				String userId = jwtUtils.getUserIdFromAccessToken(accessToken.get());
-				log.info("Access token validated, userId: {}", userId);
-				User user = userService.loadUserById(userId);
-
-				if (user != null) {
-					UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities());
-					authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-					SecurityContextHolder.getContext().setAuthentication(authentication);
-					log.info("User authenticated with userId: {}", userId);
-				}
-			}
+			parseAccessToken(request)
+			.filter(jwtUtils::validateAccessToken)
+			.ifPresent(accessToken -> authenticateUser(accessToken, request));
 		} catch (Exception e) {
 			log.error("Cannot set authentication", e);
 		}
 		filterChain.doFilter(request, response);
 	}
 
-	private Optional<String> parseAccessToken(HttpServletRequest request) {
-		String authHeader = request.getHeader("Authorization");
-		if(authHeader != null && !authHeader.isEmpty() && authHeader.startsWith("Bearer ")) {
-			return Optional.of(authHeader.replace("Bearer ", ""));
+	private void authenticateUser(String accessToken, HttpServletRequest request) {
+		String userId = jwtUtils.getUserIdFromAccessToken(accessToken);
+		log.info("Access token validated, userId: {}", userId);
+
+		User user = userService.loadUserById(userId);
+		if (user != null) {
+			UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(user,
+					accessToken, user.getAuthorities());
+			authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+			SecurityContextHolder.getContext().setAuthentication(authentication);
+			log.info("User authenticated with userId: {}", userId);
+		} else {
+			log.warn("No user found with userId: {}", userId);
 		}
-		return Optional.empty();
+	}
+
+	private Optional<String> parseAccessToken(HttpServletRequest request) {
+		return Optional.ofNullable(request.getHeader("Authorization"))
+				.filter(authHeader -> authHeader.startsWith("Bearer "))
+				.map(authHeader -> authHeader.substring(7));
 	}
 }

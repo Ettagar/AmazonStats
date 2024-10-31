@@ -11,5 +11,7 @@ import ua.agencyamazon.amazonstats.model.document.SalesAndTrafficByDate;
 @Repository
 public interface SalesByDateRepository extends MongoRepository<SalesAndTrafficByDate, String> {
 
+	List<SalesAndTrafficByDate> findByDate(Date date);
+
 	List<SalesAndTrafficByDate> findByDateBetween(Date startDate, Date endDate);
 }

@@ -18,7 +18,7 @@ public class AccessTokenEntryPoint implements AuthenticationEntryPoint {
 	@Override
 	public void commence(HttpServletRequest request, HttpServletResponse response,
 			AuthenticationException authException) throws IOException, ServletException {
-		 log.error("Unauthorized request to: {} - {}", request.getRequestURI(), authException.getMessage());
+		log.error("Unauthorized request to: {} - {}", request.getRequestURI(), authException.getMessage());
 		response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
 	}
 }

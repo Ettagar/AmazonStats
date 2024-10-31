@@ -12,9 +12,9 @@ import ua.agencyamazon.amazonstats.model.data.TrafficByDate;
 @Data
 @Document(collection = "SalesAndTrafficByDate")
 public class SalesAndTrafficByDate {
-    @Id
-    private String id;
-    private Date date;
-    private SalesByDate salesByDate;
-    private TrafficByDate trafficByDate;
+	@Id
+	private String id;
+	private Date date;
+	private SalesByDate salesByDate;
+	private TrafficByDate trafficByDate;
 }
