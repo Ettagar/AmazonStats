@@ -28,14 +28,28 @@ public class AccessTokenFilter extends OncePerRequestFilter {
 	@Override
 	protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
 			throws ServletException, IOException {
-		try {
-			parseAccessToken(request)
-			.filter(jwtUtils::validateAccessToken)
-			.ifPresent(accessToken -> authenticateUser(accessToken, request));
-		} catch (Exception e) {
-			log.error("Cannot set authentication", e);
-		}
-		filterChain.doFilter(request, response);
+	    try {
+	        parseAccessToken(request)
+	            .filter(token -> {
+	                if (jwtUtils.isTokenBlacklisted(token)) {
+	                    log.warn("Blacklisted token used for request: {}", token);
+	                    try {
+	                        response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized: Token is blacklisted");
+	                    } catch (IOException e) {
+	                        log.error("Error sending unauthorized response", e);
+	                    }
+	                    return false;
+	                }
+	                return jwtUtils.validateAccessToken(token);
+	            })
+	            .ifPresent(accessToken -> authenticateUser(accessToken, request));
+	    } catch (Exception e) {
+	        log.error("Cannot set authentication", e);
+	    }
+	    
+	    if (!response.isCommitted()) {
+	        filterChain.doFilter(request, response);
+	    }
 	}
 
 	private void authenticateUser(String accessToken, HttpServletRequest request) {
@@ -56,7 +70,6 @@ public class AccessTokenFilter extends OncePerRequestFilter {
 
 	private Optional<String> parseAccessToken(HttpServletRequest request) {
 		return Optional.ofNullable(request.getHeader("Authorization"))
-				.filter(authHeader -> authHeader.startsWith("Bearer "))
-				.map(authHeader -> authHeader.substring(7));
+				.filter(authHeader -> authHeader.startsWith("Bearer ")).map(authHeader -> authHeader.substring(7));
 	}
 }

@@ -1,5 +1,8 @@
 package ua.agencyamazon.amazonstats.service;
 
+import java.util.concurrent.TimeUnit;
+
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -33,6 +36,7 @@ public class AuthenticationService {
 	private final JwtUtils jwtUtils;
 	private final PasswordEncoder passwordEncoder;
 	private final UserService userService;
+	private final RedisTemplate<String, String> redisTemplate;
 
 	@Transactional
 	public TokenDto login(LoginDto loginDto) {
@@ -66,13 +70,26 @@ public class AuthenticationService {
 	public void logout() {
 		String accessToken = jwtUtils.extractTokenFromSecurityContext()
 				.orElseThrow(() -> new BadCredentialsException("No valid Bearer token found"));
+
+		String tokenId = jwtUtils.getTokenIdFromAccessToken(accessToken);
+		long remainingTime = jwtUtils.getRemainingValidity(accessToken);
+		redisTemplate.opsForValue().set(tokenId, "blacklisted", remainingTime, TimeUnit.MILLISECONDS);
+
 		validateAndDeleteRefreshToken(accessToken);
+		log.info("User logged out successfully");
 	}
 
 	public void logoutAll() {
-		String userId = jwtUtils.getUserIdFromSecurityContext()
+		String accessToken = jwtUtils.extractTokenFromSecurityContext()
 				.orElseThrow(() -> new BadCredentialsException("No valid Bearer token found"));
+		String userId = jwtUtils.getUserIdFromAccessToken(accessToken);
+
+		String tokenId = jwtUtils.getTokenIdFromAccessToken(accessToken);
+		long remainingTime = jwtUtils.getRemainingValidity(accessToken);
+		redisTemplate.opsForValue().set(tokenId, "blacklisted", remainingTime, TimeUnit.MILLISECONDS);
+
 		refreshTokenRepository.deleteByOwnerId(userId);
+		log.info("User logged out from all devices successfully");
 	}
 
 	public TokenDto generateAccessToken(TokenDto tokenDto) {
