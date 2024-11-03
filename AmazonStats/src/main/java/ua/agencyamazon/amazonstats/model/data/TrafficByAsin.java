@@ -1,9 +1,13 @@
 package ua.agencyamazon.amazonstats.model.data;
 
+import java.io.Serializable;
+
 import lombok.Data;
 
 @Data
-public class TrafficByAsin {
+public class TrafficByAsin implements Serializable{
+	private static final long serialVersionUID = 1L;
+
 	private Integer browserSessions;
 	private Integer browserSessionsB2B;
 	private Integer mobileAppSessions;

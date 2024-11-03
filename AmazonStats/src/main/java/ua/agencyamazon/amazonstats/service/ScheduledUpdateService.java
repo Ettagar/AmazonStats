@@ -4,10 +4,11 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
-import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -28,10 +29,7 @@ public class ScheduledUpdateService {
 	@Value("${file.path.report}")
 	private String reportFilePath;
 
-	@EventListener(ApplicationReadyEvent.class)
-	public void onApplicationStartup() {
-		updateStatistics();
-	}
+	private FileTime lastModifiedTime = FileTime.fromMillis(0);
 
 	@Scheduled(fixedRateString = "${scheduled.refreshRate}")
 	public void updateStatistics() {
@@ -41,14 +39,22 @@ public class ScheduledUpdateService {
 			return;
 		}
 
-		try (InputStream inputStream = new FileInputStream(externalFile)) {
-			SalesAndTrafficReport report = objectMapper.readValue(inputStream, SalesAndTrafficReport.class);
+		try {
+			BasicFileAttributes attrs = Files.readAttributes(externalFile.toPath(), BasicFileAttributes.class);
+			if (attrs.lastModifiedTime().equals(lastModifiedTime)) {
+				log.info("No changes detected in {}. Skipping update.", reportFilePath);
+				return;
+			}
+			lastModifiedTime = attrs.lastModifiedTime();
 
-			salesAndTrafficByDateService.updateSalesAndTrafficByDate(report.getSalesAndTrafficByDate());
-			salesAndTrafficByAsinService.updateSalesAndTrafficByAsin(report.getSalesAndTrafficByAsin());
+			try (InputStream inputStream = new FileInputStream(externalFile)) {
+				SalesAndTrafficReport report = objectMapper.readValue(inputStream, SalesAndTrafficReport.class);
 
-			log.info("Database update completed successfully from {}", reportFilePath);
+				salesAndTrafficByDateService.updateSalesAndTrafficByDate(report.getSalesAndTrafficByDate());
+				salesAndTrafficByAsinService.updateSalesAndTrafficByAsin(report.getSalesAndTrafficByAsin());
 
+				log.info("Database update completed successfully from {}", reportFilePath);
+			}
 		} catch (IOException e) {
 			log.error("Error updating statistics from file: {}", reportFilePath, e);
 		}

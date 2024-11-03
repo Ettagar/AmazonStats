@@ -16,7 +16,7 @@
       "date": "2024-02-14",
       "salesByDate": {
         "orderedProductSales": {
-          "amount": 10614.69,
+          "amount": 110614.69,
           "currencyCode": "USD"
         },
         "orderedProductSalesB2B": {
@@ -6124,7 +6124,7 @@
         "totalOrderItemsB2B": 0
       },
       "trafficByAsin": {
-        "browserSessions": 2,
+        "browserSessions": 22,
         "browserSessionsB2B": 0,
         "mobileAppSessions": 2,
         "mobileAppSessionsB2B": 0,

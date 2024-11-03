@@ -30,8 +30,10 @@ public class SalesService {
 	private final SalesByDateRepository salesByDateRepository;
 	private final SalesByAsinRepository salesByAsinRepository;
 
-	@Cacheable(value = "statsByDate", key = "#startDate + #endDate")
+	@Cacheable(value = "statsByDate", key = "#startDate + ':' + #endDate")
 	public Map<String, Object> getStatsByDate(String startDate, String endDate) {
+		log.info("Cache miss - Fetching stats by date from {} to {} from database", startDate, endDate);
+
 		Date start;
 		Date end;
 		try {
@@ -46,11 +48,8 @@ public class SalesService {
 
 		Map<String, Object> summary = new HashMap<>();
 
-		// Summing sales and B2B sales amounts
 		summary.put("totalSales", sumMonetaryAmount(salesDataList, data -> data.getSalesByDate().getOrderedProductSales()));
 		summary.put("totalSalesB2B", sumMonetaryAmount(salesDataList, data -> data.getSalesByDate().getOrderedProductSalesB2B()));
-
-		// Other aggregated metrics
 		summary.put("totalUnitsOrdered", sumInt(salesDataList, data -> data.getSalesByDate().getUnitsOrdered()));
 		summary.put("totalUnitsOrderedB2B", sumInt(salesDataList, data -> data.getSalesByDate().getUnitsOrderedB2B()));
 		summary.put("totalOrderItems", sumInt(salesDataList, data -> data.getSalesByDate().getTotalOrderItems()));
@@ -63,18 +62,24 @@ public class SalesService {
 
 	@Cacheable(value = "statsByAsin", key = "#asins")
 	public Map<String, Object> getStatsByAsin(List<String> asins) {
+		log.info("Cache miss - Fetching stats by ASINs: {} from database", asins);
+
 		List<SalesAndTrafficByAsin> salesDataList = salesByAsinRepository.findByParentAsinIn(asins);
 		return generateSalesSummary(salesDataList);
 	}
 
 	@Cacheable("summaryByDates")
 	public Map<String, Object> getSummaryByDates() {
+		log.info("Cache miss - Fetching summary by dates from database");
+
 		List<SalesAndTrafficByDate> salesDataList = salesByDateRepository.findAll();
 		return generateDateSummary(salesDataList);
 	}
 
 	@Cacheable("summaryByAsins")
 	public Map<String, Object> getSummaryByAsins() {
+		log.info("Cache miss - Fetching summary by ASINs from database");
+
 		List<SalesAndTrafficByAsin> salesDataList = salesByAsinRepository.findAll();
 		return generateSalesSummary(salesDataList);
 	}

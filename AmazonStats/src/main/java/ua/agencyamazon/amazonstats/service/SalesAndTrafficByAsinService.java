@@ -1,12 +1,13 @@
 package ua.agencyamazon.amazonstats.service;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Supplier;
-import java.util.stream.Stream;
 
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,45 +18,55 @@ import ua.agencyamazon.amazonstats.repository.SalesByAsinRepository;
 @Service
 @RequiredArgsConstructor
 public class SalesAndTrafficByAsinService {
+
 	private final SalesByAsinRepository salesByAsinRepository;
 
+	@Cacheable(value = "salesByAsinCache", key = "#parentAsin")
+	public Optional<SalesAndTrafficByAsin> findByParentAsin(String parentAsin) {
+		return salesByAsinRepository.findByParentAsin(parentAsin);
+	}
+
+	@Transactional
 	public void updateSalesAndTrafficByAsin(List<SalesAndTrafficByAsin> salesAndTrafficByAsinList) {
 		salesAndTrafficByAsinList.forEach(newData -> {
-			Optional<SalesAndTrafficByAsin> existingDataOpt = salesByAsinRepository.findByParentAsin(newData.getParentAsin());
+			Optional<SalesAndTrafficByAsin> existingDataOpt = findByParentAsin(newData.getParentAsin());
 
 			if (existingDataOpt.isPresent()) {
 				SalesAndTrafficByAsin existingData = existingDataOpt.get();
 
-				if (hasChanges(existingData, newData)) {
-					existingData.setSalesByAsin(newData.getSalesByAsin());
-					existingData.setTrafficByAsin(newData.getTrafficByAsin());
-					existingData.setSku(newData.getSku());
-					salesByAsinRepository.save(existingData);
-					log.info("Updated SalesAndTrafficByAsin for parentAsin: {}", newData.getParentAsin());
+				if (!existingData.equals(newData)) {
+					updateAndCache(existingData, newData);
 				} else {
 					log.info("No changes detected for parentAsin: {}", newData.getParentAsin());
 				}
 			} else {
-				salesByAsinRepository.save(newData);
-				log.info("Inserted new SalesAndTrafficByAsin for parentAsin: {}", newData.getParentAsin());
+				insertAndCacheNewData(newData);
 			}
 		});
 	}
 
-	private boolean hasChanges(SalesAndTrafficByAsin existingData, SalesAndTrafficByAsin newData) {
-		return Stream.of(
-				(Supplier<Boolean>) () -> !Objects.equals(existingData.getParentAsin(),
-						newData.getParentAsin()),
-				(Supplier<Boolean>) () -> !Objects.equals(existingData.getSku(),
-						newData.getSku()),
-				(Supplier<Boolean>) () -> !Objects.equals(existingData.getSalesByAsin().getOrderedProductSales(),
-						newData.getSalesByAsin().getOrderedProductSales()),
-				(Supplier<Boolean>) () -> !Objects.equals(existingData.getSalesByAsin().getUnitsOrdered(),
-						newData.getSalesByAsin().getUnitsOrdered()),
-				(Supplier<Boolean>) () -> !Objects.equals(existingData.getTrafficByAsin().getBrowserPageViews(),
-						newData.getTrafficByAsin().getBrowserPageViews()),
-				(Supplier<Boolean>) () -> !Objects.equals(existingData.getTrafficByAsin().getPageViews(),
-						newData.getTrafficByAsin().getPageViews())
-				).anyMatch(Supplier::get);
+	@CacheEvict(value = "salesByAsinCache", key = "#parentAsin")
+	public void evictCacheByAsin(String parentAsin) {
+		log.info("Cache evicted for parentAsin: {}", parentAsin);
+	}
+
+	@CachePut(value = "salesByAsinCache", key = "#newData.parentAsin")
+	public SalesAndTrafficByAsin updateAndCache(SalesAndTrafficByAsin existingData, SalesAndTrafficByAsin newData) {
+		existingData.setSalesByAsin(newData.getSalesByAsin());
+		existingData.setTrafficByAsin(newData.getTrafficByAsin());
+		existingData.setSku(newData.getSku());
+		salesByAsinRepository.save(existingData);
+
+		log.info("Updated SalesAndTrafficByAsin and cache for parentAsin: {}", newData.getParentAsin());
+		return existingData;
+	}
+
+	@CachePut(value = "salesByAsinCache", key = "#newData.parentAsin")
+	public SalesAndTrafficByAsin insertAndCacheNewData(SalesAndTrafficByAsin newData) {
+		salesByAsinRepository.save(newData);
+		log.info("Inserted new SalesAndTrafficByAsin and cached for parentAsin: {}", newData.getParentAsin());
+
+		return newData;
 	}
 }
+
